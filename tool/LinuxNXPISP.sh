@@ -38,7 +38,7 @@ echo "Searching for NXP LPC1xxx MCU in USB ISP mode..."
 
 # lsusb -d will return output like this:
 # Bus 007 Device 002: ID 04cc:0003 Philips Semiconductors 
-lsusb -d "1FC9:000F" |
+lsusb -d "04cc:0003" |
 #                  Bus  007 Device 002:   ID   04cc:0003 Philips Semiconductors
 while IFS=" " read lab1 bus lab2   device lab3 id        mfg
 do
@@ -54,8 +54,8 @@ do
 	model=$(udevadm info -q property -n $path | grep ID_MODEL=)
 	model="${model:9}"
 	echo "Device Model ID is $model"
-	if [ $model != "LPC1XXX_IFLASH" ]; then
-		echo "Model does not match: Not \"LPC1XXX_IFLASH\""
+	if [ $model != "NXP_LPC13XX_IFLASH" ]; then
+		echo "Model does not match: Not \"NXP_LPC13XX_IFLASH\""
 	else
 		echo "Correct model ID found."
 		echo "Searching for disk devices with matching device path..."
@@ -99,34 +99,33 @@ do
 					# The new firmware should be the same size as the flash on the chip
 					if [ "$fwsize" -ne "$newfwsize" ]; then
 						echo "New firmware does not match LPC device flash size."
+					fi
+					# Get volume label from mount command. This is used to check
+					# for code protect. This is a non-standard extension to mount
+					# and will cause a compatibility problem with some variants
+					# of linux/unix (Mac OS-X for example).
+					vollabel=$(mount -l | grep "^$disk " | cut -d'[' -f2- | cut -d']' -f1)
+					# desired result: CRP DISABLD
+					echo "Volume label $vollabel"
+					if [ "$vollabel" != "CRP DISABLD" ]; then
+						echo "Cannot flash device- it is code protected!"
+						# Left as an exercise to the reader- at this point the
+						# old firmware.bin file could be deleted and the user
+						# could be asked to remove and reinsert the device to
+						# reset code protect so it could be updated.
 					else
-						# Get volume label from mount command. This is used to check
-						# for code protect. This is a non-standard extension to mount
-						# and will cause a compatibility problem with some variants
-						# of linux/unix (Mac OS-X for example).
-						vollabel=$(mount -l | grep "^$disk " | cut -d'[' -f2- | cut -d']' -f1)
-						# desired result: CRP DISABLD
-						echo "Volume label $vollabel"
-						if [ "$vollabel" != "CRP DISABLD" ]; then
-							echo "Cannot flash device- it is code protected!"
-							# Left as an exercise to the reader- at this point the
-							# old firmware.bin file could be deleted and the user
-							# could be asked to remove and reinsert the device to
-							# reset code protect so it could be updated.
-						else
-							# dd is used to update firmware.bin in place. The cp
-							# command will truncate firmware.bin which will cause
-							# the linux vfat filesystem to reallocate the blocks
-							# in a different order, scrambling the firmware update
-							# flash writes.
-							dd bs=1024 conv=nocreat,notrunc if="$1" of="$volpath"
-							echo "Firmware update complete!"
+						# dd is used to update firmware.bin in place. The cp
+						# command will truncate firmware.bin which will cause
+						# the linux vfat filesystem to reallocate the blocks
+						# in a different order, scrambling the firmware update
+						# flash writes.
+						dd bs=1024 conv=nocreat,notrunc if="$1" of="$volpath"
+						echo "Firmware update complete!"
 
-							# unmount device when done to ensure that all of the
-							# data is written to the NXP LPC ISP device
-							umount "$disk"
-							echo "Device unmounted."
-						fi
+						# unmount device when done to ensure that all of the
+						# data is written to the NXP LPC ISP device
+						umount "$disk"
+						echo "Device unmounted."
 					fi
 				fi
 			fi
