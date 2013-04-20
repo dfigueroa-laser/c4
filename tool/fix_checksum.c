@@ -24,7 +24,7 @@ int main(int argc, char **argv)
         return -2;
     }
 
-    fd = fopen(argv[1], "r+");
+    fd = fopen(argv[1], "rb+");
     if (fd == NULL) {
         printf("Failed to open %s.\n", argv[1]);
         return -3;
@@ -44,7 +44,8 @@ int main(int argc, char **argv)
 
     result = ~sum + 1;
 
-    r = fwrite(&result, sizeof(int32_t), 1, fd);
+    fseek(fd, sizeof(uint32_t) * 7, SEEK_SET);
+    r = fwrite(&result, sizeof(uint32_t), 1, fd);
     if (r != 1) {
         printf("Failed to write file.\n");
     }
